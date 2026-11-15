@@ -695,6 +695,8 @@ describe("partial object patches at project scope", () => {
           sourceControlWritingStyle: {
             mode: "custom" as const,
             customInstructions: "Keep it short.",
+            commitInstructionsFile: "",
+            changeRequestInstructionsFile: "",
             followChangeRequestTemplates: false,
           },
         },
@@ -727,6 +729,8 @@ describe("partial object patches at project scope", () => {
           sourceControlWritingStyle: {
             mode: "custom",
             customInstructions: "Be terse.",
+            commitInstructionsFile: "",
+            changeRequestInstructionsFile: "",
             followChangeRequestTemplates: false,
           },
         },

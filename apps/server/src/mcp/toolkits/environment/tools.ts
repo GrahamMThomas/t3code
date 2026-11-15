@@ -24,6 +24,8 @@ const PreferenceFields = {
     mode: Schema.String,
     followChangeRequestTemplates: Schema.Boolean,
     customInstructions: Schema.String,
+    commitInstructionsFile: Schema.String,
+    changeRequestInstructionsFile: Schema.String,
     truncated: Schema.Boolean,
   }),
 };

@@ -447,14 +447,17 @@ export type ChangesLineTotals = {
   readonly baseRef: string | null;
 };
 
-// `branchChanges ?? workingTree` treats `{0,0}` as present, so a zero branch total hid a dirty
-// working tree and the Changes row read +0 while Diff still showed the work.
-// The Diff panel's branch comparison wins when it has file stats, so a remembered base or
-// hidden whitespace reads the same in the row as in the panel.
+// Uncommitted work wins so the row matches what Commit will stage. On a clean tree the Diff
+// panel's branch comparison wins when it has file stats, so a remembered base or hidden
+// whitespace reads the same in the row as in the panel.
 export function resolveChangesTotals(
   status: VcsStatusResult | null | undefined,
   branchPreview?: ReviewDiffPreviewSource | null,
 ): ChangesLineTotals | null {
+  const tree = status?.workingTree;
+  if (tree && (tree.insertions > 0 || tree.deletions > 0)) {
+    return { insertions: tree.insertions, deletions: tree.deletions, baseRef: null };
+  }
   if (branchPreview?.files) {
     let insertions = 0;
     let deletions = 0;
@@ -465,14 +468,7 @@ export function resolveChangesTotals(
     return { insertions, deletions, baseRef: branchPreview.baseRef };
   }
   if (!status) return null;
-  const branch = status.branchChanges;
-  const tree = { ...status.workingTree, baseRef: null };
-  const selected =
-    branch && (branch.insertions > 0 || branch.deletions > 0)
-      ? branch
-      : tree.insertions > 0 || tree.deletions > 0
-        ? tree
-        : (branch ?? tree);
+  const selected = status.branchChanges ?? { ...status.workingTree, baseRef: null };
   return {
     insertions: selected.insertions,
     deletions: selected.deletions,

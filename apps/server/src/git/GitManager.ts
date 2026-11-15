@@ -19,6 +19,8 @@ import * as Ref from "effect/Ref";
 import * as Schema from "effect/Schema";
 import * as Scope from "effect/Scope";
 import * as Stream from "effect/Stream";
+import * as HostProcess from "@t3tools/shared/HostProcess";
+import { expandHomePath } from "@t3tools/provider-core/server/pathExpansion";
 import {
   GitActionProgressEvent,
   GitActionProgressPhase,
@@ -671,6 +673,7 @@ export const make = Effect.gen(function* () {
   const random = yield* SecureRandom.SecureRandom;
   const fileSystem = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
+  const homeDirectory = yield* HostProcess.HomeDirectory;
 
   const sourceControlProvider = (cwd: string) => sourceControlProviders.resolve({ cwd });
   const changeRequestTermsFor = Effect.fn("GitManager.changeRequestTermsFor")(function* (
@@ -794,6 +797,16 @@ export const make = Effect.gen(function* () {
     return result;
   });
 
+  const readInstructionFile = Effect.fn("GitManager.readInstructionFile")(function* (
+    instructionPath: string,
+  ) {
+    const info = yield* fileSystem.stat(instructionPath);
+    if (info.type !== "File" || info.size > ByteSize.bytes(20_000)) {
+      return "";
+    }
+    return (yield* fileSystem.readFileString(instructionPath)).trim();
+  });
+
   const readRepositoryInstructions = Effect.fn("GitManager.readRepositoryInstructions")(
     function* (cwd: string, fileName: string) {
       const root = yield* fileSystem.realPath(cwd);
@@ -802,13 +815,28 @@ export const make = Effect.gen(function* () {
       if (relative === "" || relative.startsWith("..") || path.isAbsolute(relative)) {
         return "";
       }
-      const info = yield* fileSystem.stat(instructionPath);
-      if (info.type !== "File" || info.size > ByteSize.bytes(20_000)) {
-        return "";
-      }
-      return (yield* fileSystem.readFileString(instructionPath)).trim();
+      return yield* readInstructionFile(instructionPath);
     },
     Effect.orElseSucceed(() => ""),
+  );
+
+  const readConfiguredInstructionFile = Effect.fn("GitManager.readConfiguredInstructionFile")(
+    function* (setting: string) {
+      if (!setting) return "";
+      const instructionPath = expandHomePath(setting, homeDirectory);
+      if (!path.isAbsolute(instructionPath)) {
+        yield* Effect.logWarning("Writing style rules file must be an absolute path.", {
+          path: setting,
+        });
+        return "";
+      }
+      return yield* readInstructionFile(instructionPath).pipe(
+        Effect.tapError((cause) =>
+          Effect.logWarning("Could not read writing style rules file.", { path: setting, cause }),
+        ),
+        Effect.orElseSucceed(() => ""),
+      );
+    },
   );
 
   const readRecentCommitSubjects = (cwd: string) =>
@@ -835,15 +863,19 @@ export const make = Effect.gen(function* () {
     switch (settings.style.mode) {
       case "conventional_commits":
         return conventionalCommitsTextGenerationPolicy;
-      case "custom":
-        return customTextGenerationPolicy(
-          settings.style.customInstructions
-            ? {
-                commitInstructions: settings.style.customInstructions,
-                changeRequestInstructions: settings.style.customInstructions,
-              }
-            : {},
-        );
+      case "custom": {
+        const { customInstructions, commitInstructionsFile, changeRequestInstructionsFile } =
+          settings.style;
+        const commitInstructions =
+          (yield* readConfiguredInstructionFile(commitInstructionsFile)) || customInstructions;
+        const changeRequestInstructions =
+          (yield* readConfiguredInstructionFile(changeRequestInstructionsFile)) ||
+          customInstructions;
+        return customTextGenerationPolicy({
+          ...(commitInstructions ? { commitInstructions } : {}),
+          ...(changeRequestInstructions ? { changeRequestInstructions } : {}),
+        });
+      }
       case "repo_conventions": {
         const subjects = yield* readRecentCommitSubjects(cwd);
         const agentInstructions = yield* readRepositoryInstructions(cwd, "AGENTS.md");

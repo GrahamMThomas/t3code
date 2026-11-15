@@ -291,19 +291,30 @@ describe("resolveChangesTotals", () => {
     );
   });
 
-  it("keeps non-zero branchChanges over the working tree", () => {
+  it("prefers uncommitted changes over the branch total and the panel's comparison", () => {
+    const dirtyBranch = status({
+      branchChanges: { baseRef: "origin/master", insertions: 20, deletions: 3 },
+      workingTree: {
+        files: [{ path: "a.ts", insertions: 1, deletions: 0 }],
+        insertions: 1,
+        deletions: 0,
+      },
+    });
+    const expected = { insertions: 1, deletions: 0, baseRef: null };
+    assert.deepEqual(resolveChangesTotals(dirtyBranch), expected);
     assert.deepEqual(
-      resolveChangesTotals(
-        status({
-          branchChanges: { baseRef: "origin/master", insertions: 20, deletions: 3 },
-          workingTree: {
-            files: [{ path: "a.ts", insertions: 1, deletions: 0 }],
-            insertions: 1,
-            deletions: 0,
-          },
-        }),
-      ),
-      { insertions: 20, deletions: 3, baseRef: "origin/master" },
+      resolveChangesTotals(dirtyBranch, {
+        id: "branch-range",
+        kind: "branch-range",
+        title: "Changes vs origin/master",
+        baseRef: "origin/master",
+        headRef: "feature/test",
+        diff: "",
+        diffHash: "hash",
+        truncated: false,
+        files: [{ path: "a.ts", previousPath: null, additions: 21, deletions: 3 }],
+      }),
+      expected,
     );
   });
 

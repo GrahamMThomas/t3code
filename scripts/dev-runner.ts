@@ -22,6 +22,7 @@ import { ChildProcess } from "effect/process";
 
 import { type DevShareError, shareDevServer, unshareDevServer } from "./lib/dev-share.ts";
 import { loadRepoEnv } from "./lib/public-config.ts";
+import { runSidecars } from "./mods/sidecars.ts";
 
 Object.assign(process.env, loadRepoEnv());
 
@@ -861,6 +862,8 @@ export const runDevRunnerWithInput = Effect.fn("dev-runner.runDevRunnerWithInput
     worktreeHome: baseDir === worktreeHome ? worktreeHome : undefined,
     env,
   });
+
+  if (worktreeHome === undefined) yield* Effect.forkScoped(runSidecars(env));
 
   const args = [...(built ? BUILT_DEV_ARGS : MODE_ARGS[input.mode]), ...input.runArgs];
   const spawnCommand = yield* resolveSpawnCommand("vp", args, { env });

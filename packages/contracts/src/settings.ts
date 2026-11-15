@@ -1046,6 +1046,9 @@ export const SourceControlWritingStyleSettings = Schema.Struct({
     Schema.withDecodingDefault(Effect.succeed("repo_conventions" as const)),
   ),
   customInstructions: TrimmedString.pipe(Schema.withDecodingDefault(Effect.succeed(""))),
+  // Paths read on every generation in custom mode, so the rules can live with an agent skill.
+  commitInstructionsFile: TrimmedString.pipe(Schema.withDecodingDefault(Effect.succeed(""))),
+  changeRequestInstructionsFile: TrimmedString.pipe(Schema.withDecodingDefault(Effect.succeed(""))),
   followChangeRequestTemplates: Schema.Boolean.pipe(
     Schema.withDecodingDefault(Effect.succeed(true)),
   ),
@@ -1059,6 +1062,8 @@ const LegacySourceControlWritingStyle = TrimmedString.pipe(
       decode: (value): SourceControlWritingStyleSettings => ({
         mode: value.length > 0 ? "custom" : "repo_conventions",
         customInstructions: value,
+        commitInstructionsFile: "",
+        changeRequestInstructionsFile: "",
         followChangeRequestTemplates: true,
       }),
       encode: (value) => value.customInstructions,
@@ -1914,6 +1919,8 @@ export const ServerSettingsPatch = Schema.Struct({
     Schema.Struct({
       mode: Schema.optionalKey(SourceControlWritingStyleMode),
       customInstructions: Schema.optionalKey(TrimmedString),
+      commitInstructionsFile: Schema.optionalKey(TrimmedString),
+      changeRequestInstructionsFile: Schema.optionalKey(TrimmedString),
       followChangeRequestTemplates: Schema.optionalKey(Schema.Boolean),
     }),
   ),

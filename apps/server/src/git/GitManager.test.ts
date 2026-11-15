@@ -2940,6 +2940,47 @@ it.layer(layerGitManagerTest)("GitManager", (it) => {
     }),
   );
 
+  it.effect("reads custom rules files on each generation, falling back to custom text", () =>
+    Effect.gen(function* () {
+      const repoDir = yield* makeTempDir("t3code-git-manager-");
+      const rulesDir = yield* makeTempDir("t3code-git-manager-rules-");
+      yield* initRepo(repoDir);
+      const commitRulesFile = NodePath.join(rulesDir, "commit-rules.md");
+      NodeFS.writeFileSync(commitRulesFile, "Subjects start with a scope.\n");
+      NodeFS.writeFileSync(NodePath.join(repoDir, "README.md"), "first change\n");
+      const policies: Array<TextGeneration.CommitMessageGenerationInput["policy"]> = [];
+
+      const { manager } = yield* makeManager({
+        serverSettings: {
+          sourceControlWritingStyle: {
+            mode: "custom" as const,
+            customInstructions: "Use a direct tone.",
+            commitInstructionsFile: commitRulesFile,
+            changeRequestInstructionsFile: NodePath.join(rulesDir, "missing.md"),
+          },
+        },
+        textGeneration: {
+          generateCommitMessage: (input) => {
+            policies.push(input.policy);
+            return Effect.succeed({ subject: "Update readme", body: "" });
+          },
+        },
+      });
+      yield* runStackedAction(manager, { cwd: repoDir, action: "commit" });
+      NodeFS.writeFileSync(commitRulesFile, "Subjects stay under 50 characters.\n");
+      NodeFS.writeFileSync(NodePath.join(repoDir, "README.md"), "second change\n");
+      yield* runStackedAction(manager, { cwd: repoDir, action: "commit" });
+
+      expect(policies).toMatchObject([
+        {
+          commitInstructions: "Subjects start with a scope.",
+          changeRequestInstructions: "Use a direct tone.",
+        },
+        { commitInstructions: "Subjects stay under 50 characters." },
+      ]);
+    }),
+  );
+
   it.effect("includes CLAUDE.md for Claude writers only when it differs from AGENTS.md", () =>
     Effect.gen(function* () {
       const repoDir = yield* makeTempDir("t3code-git-manager-");

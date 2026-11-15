@@ -12,6 +12,8 @@ import * as Option from "effect/Option";
 
 import * as Electron from "electron";
 
+import { focusExistingTab } from "../mods/browserTabs/focusExistingTab.ts";
+
 // Remote editor deep links and local editor file links must reach the OS handler.
 const SAFE_WEB_PROTOCOLS = new Set(["http:", "https:"]);
 const REMOTE_EDITOR_PROTOCOLS = new Set(
@@ -74,13 +76,18 @@ export const make = ElectronShell.of({
   openExternal: Effect.fn("ElectronShell.openExternal")(function (rawUrl) {
     return Option.match(parseSafeExternalUrl(rawUrl), {
       onNone: () => Effect.succeed(false),
-      onSome: (externalUrl) =>
-        Effect.promise(() =>
+      onSome: (externalUrl) => {
+        const open = Effect.promise(() =>
           Electron.shell.openExternal(externalUrl).then(
             () => true,
             () => false,
           ),
-        ),
+        );
+        if (!SAFE_WEB_PROTOCOLS.has(new URL(externalUrl).protocol)) return open;
+        return Effect.flatMap(focusExistingTab(externalUrl), (focused) =>
+          focused ? Effect.succeed(true) : open,
+        );
+      },
     });
   }),
   openSystemSettings: Effect.fn("ElectronShell.openSystemSettings")(function (pane) {

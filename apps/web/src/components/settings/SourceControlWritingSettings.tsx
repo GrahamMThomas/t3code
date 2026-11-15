@@ -44,6 +44,7 @@ import {
 } from "./settingsLayout";
 import { AdvancedSettings } from "./AdvancedSettings";
 import { searchableSetting } from "./settingsSearch";
+import { SourceControlRulesFiles } from "./SourceControlRulesFiles";
 
 const MODE_OPTIONS: Record<SourceControlWritingStyleMode, { label: string; description: string }> =
   {
@@ -59,7 +60,7 @@ const MODE_OPTIONS: Record<SourceControlWritingStyleMode, { label: string; descr
     custom: {
       label: "Custom instructions",
       description:
-        "Your instructions shape commit messages and pull request titles and descriptions.",
+        "Your instructions or rules files shape commit messages and pull request titles and descriptions.",
     },
   };
 
@@ -104,7 +105,9 @@ export function SourceControlWritingSettingsSection() {
   const isSourceControlWritingStyleDirty =
     writingStyleMixed ||
     style.mode !== defaults.mode ||
-    style.customInstructions !== defaults.customInstructions;
+    style.customInstructions !== defaults.customInstructions ||
+    style.commitInstructionsFile !== defaults.commitInstructionsFile ||
+    style.changeRequestInstructionsFile !== defaults.changeRequestInstructionsFile;
 
   const textGenerationProviders = serverProviders.filter(
     (provider) => provider.supportsTextGeneration !== false,
@@ -210,6 +213,8 @@ export function SourceControlWritingSettingsSection() {
                   sourceControlWritingStyle: {
                     mode: defaults.mode,
                     customInstructions: defaults.customInstructions,
+                    commitInstructionsFile: defaults.commitInstructionsFile,
+                    changeRequestInstructionsFile: defaults.changeRequestInstructionsFile,
                   },
                 })
               }
@@ -307,6 +312,10 @@ export function SourceControlWritingSettingsSection() {
               rows={4}
               placeholder="Keep commit subjects under 60 characters. Keep pull request descriptions short and plain."
               aria-label="Custom commit and pull request instructions"
+            />
+            <SourceControlRulesFiles
+              style={style}
+              onChange={(patch) => updateSettings({ sourceControlWritingStyle: patch })}
             />
           </div>
         ) : null}
