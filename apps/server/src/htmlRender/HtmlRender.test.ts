@@ -14,12 +14,14 @@ import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import * as Ref from "effect/Ref";
 import * as NodeDgram from "node:dgram";
 import * as NodeHttp from "node:http";
 import * as NodeURL from "node:url";
 
 import { resolveAttachmentPathById } from "../attachmentStore.ts";
 import * as ServerConfig from "../config.ts";
+import * as ExternalLauncher from "../process/externalLauncher.ts";
 import * as HtmlRender from "./HtmlRender.ts";
 import { HtmlRenderBrowserError } from "./headlessChrome.ts";
 import * as PreviewBrowser from "../preview/PreviewBrowser.ts";
@@ -32,8 +34,10 @@ const layerHtmlRender = (
   installed: Effect.Effect<Option.Option<string>> = Effect.succeed(
     Option.fromUndefinedOr(executable),
   ),
+  launchBrowser: (target: string) => Effect.Effect<void> = () => Effect.void,
 ) =>
   HtmlRender.layer.pipe(
+    Layer.provide(Layer.mock(ExternalLauncher.ExternalLauncher)({ launchBrowser })),
     Layer.provide(
       Layer.succeed(
         PreviewBrowser.PreviewBrowser,
@@ -258,6 +262,32 @@ describe("HtmlRender", () => {
       yield* mcpSessions.clear(threadId);
       expect(yield* mcpSessions.takeHtmlRender(threadId, page)).toBe(undefined);
     }).pipe(Effect.provide(layerTest)),
+  );
+
+  it.effect("opens the stored page in the host browser, and a failed open still publishes", () =>
+    Effect.gen(function* () {
+      const launches = yield* Ref.make<ReadonlyArray<string>>([]);
+      const launchBrowser = (target: string) =>
+        Ref.update(launches, (targets) => [...targets, target]).pipe(
+          Effect.andThen(Effect.die("No browser on this host.")),
+        );
+      yield* Effect.gen(function* () {
+        const config = yield* ServerConfig.ServerConfig;
+        const htmlRender = yield* HtmlRender.HtmlRender;
+        const reference = yield* htmlRender.publish({
+          threadId: ThreadId.make("thread-html-open"),
+          html: "<p>Opened</p>",
+          title: "Opened",
+          height: 200,
+        });
+        const stored = resolveAttachmentPathById({
+          attachmentsDir: config.attachmentsDir,
+          attachmentId: reference.attachmentId,
+        });
+        expect(stored).not.toBe(null);
+        expect(yield* Ref.get(launches)).toEqual([stored]);
+      }).pipe(Effect.provide(layerHtmlRender(undefined, undefined, launchBrowser)));
+    }),
   );
 
   it.effect("publishes a page from an .html file as a snapshot that path calls recover", () =>

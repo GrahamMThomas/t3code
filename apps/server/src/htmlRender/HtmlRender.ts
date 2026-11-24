@@ -35,6 +35,7 @@ import { createAttachmentId } from "../attachmentStore.ts";
 import { makeIsServerInternalPath } from "../auth/serverInternalPaths.ts";
 import { resolveRootCliCommand } from "../cli/invocation.ts";
 import * as ServerConfig from "../config.ts";
+import * as ExternalLauncher from "../process/externalLauncher.ts";
 import * as HeadlessChrome from "./headlessChrome.ts";
 import * as PreviewBrowser from "../preview/PreviewBrowser.ts";
 import * as PreviewBrowserHost from "../preview/PreviewBrowserHost.ts";
@@ -372,6 +373,7 @@ const make = Effect.gen(function* () {
   const isServerInternalPath = yield* makeIsServerInternalPath;
   const previewBrowser = yield* PreviewBrowser.PreviewBrowser;
   const mcpSessions = yield* McpProviderSessions.McpProviderSessions;
+  const externalLauncher = yield* ExternalLauncher.ExternalLauncher;
   const services = yield* Effect.context<
     FileSystem.FileSystem | Path.Path | ChildProcessSpawner.ChildProcessSpawner
   >();
@@ -524,7 +526,7 @@ const make = Effect.gen(function* () {
       title: input.title.trim().slice(0, HTML_RENDER_MAX_TITLE_LENGTH) || "HTML",
       height: clampHtmlRenderHeight(input.height),
     };
-    return yield* fileSystem.writeFileString(filePath, html).pipe(
+    const reference = yield* fileSystem.writeFileString(filePath, html).pipe(
       Effect.mapError((cause) => new HtmlRenderStoreError({ cause })),
       Effect.uninterruptible,
       Effect.andThen(measure(html)),
@@ -557,7 +559,19 @@ const make = Effect.gen(function* () {
         ),
       ),
     );
+    yield* openInBrowser(filePath);
+    return reference;
   });
+
+  // The stored copy has its images inlined, so it opens from disk without T3 Code.
+  const openInBrowser = (filePath: string) =>
+    externalLauncher
+      .launchBrowser(filePath)
+      .pipe(
+        Effect.catchCause((cause) =>
+          Effect.logInfo("Could not open an HTML render in the browser.", { cause }),
+        ),
+      );
 
   const preview = Effect.fn("HtmlRender.preview")(function* (
     input: HtmlRenderSource & {

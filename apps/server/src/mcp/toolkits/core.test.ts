@@ -46,6 +46,7 @@ import * as GitVcsDriver from "../../vcs/GitVcsDriver.ts";
 import * as ThreadManagement from "../../orchestration-v2/ThreadManagementService.ts";
 import * as ThreadSearch from "../../orchestration-v2/ThreadSearch.ts";
 import * as PreviewBrowser from "../../preview/PreviewBrowser.ts";
+import * as ExternalLauncher from "../../process/externalLauncher.ts";
 import * as ProjectService from "../../project/ProjectService.ts";
 import * as ProviderRegistry from "../../provider/ProviderRegistry.ts";
 import * as SecretRequests from "../../secrets/SecretRequests.ts";
@@ -307,6 +308,9 @@ it.effect("returns an HTML render reference that Codex and Claude tool rows both
         Layer.provideMerge(McpHttpServer.layerInProcessMcpServer),
         Layer.provide(McpProviderSessions.layer),
         Layer.provide(PreviewBrowser.layer),
+        Layer.provide(
+          Layer.mock(ExternalLauncher.ExternalLauncher)({ launchBrowser: () => Effect.void }),
+        ),
         Layer.provide(ServerConfig.layerTest(process.cwd(), { prefix: "t3-mcp-html-render-" })),
         Layer.provide(
           DocumentText.layer.pipe(

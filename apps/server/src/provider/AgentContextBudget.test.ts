@@ -30,6 +30,7 @@ import { PeerLinks } from "../peer/PeerLinks.ts";
 import { RemoteDelegation } from "../peer/RemoteDelegation.ts";
 import { PreviewManager } from "../preview/Manager.ts";
 import { PreviewBrowser } from "../preview/PreviewBrowser.ts";
+import { ExternalLauncher } from "../process/externalLauncher.ts";
 import { ManagedProjectFolders } from "../project/ManagedProjectFolders.ts";
 import { ProjectCloneTracker } from "../project/ProjectCloneTracker.ts";
 import { ProjectService } from "../project/ProjectService.ts";
@@ -51,6 +52,7 @@ const toolHandlerServices = Layer.mergeAll(
   Layer.mock(AssetSigner)({}),
   Layer.mock(DeviceService)({}),
   Layer.mock(DocumentText)({}),
+  Layer.mock(ExternalLauncher)({}),
   Layer.mock(GitVcsDriver)({}),
   Layer.mock(GitWorkflowService)({}),
   Layer.mock(ManagedProjectFolders)({ namedProjectsRoot: "" }),
