@@ -77,6 +77,7 @@ import {
   TurnItemId,
   TrimmedNonEmptyString,
   managedRuntimeModeCeilingMessage,
+  threadTicketKeysEqual,
 } from "@t3tools/contracts";
 import * as KeyedLock from "@t3tools/shared/KeyedLock";
 import { modelSelectionsEqual } from "@t3tools/shared/model";
@@ -623,6 +624,8 @@ function commandThreadId(command: OrchestrationV2ServerCommand): ThreadId {
     case "thread.pin.reorder":
     case "thread.active.reorder":
     case "thread.tag.set":
+    case "thread.ticket.link":
+    case "thread.ticket.unlink":
     case "thread.visit":
     case "thread.mark-unread":
     case "thread.metadata.update":
@@ -3838,6 +3841,8 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
           | "thread.unpin"
           | "thread.pin.reorder"
           | "thread.tag.set"
+          | "thread.ticket.link"
+          | "thread.ticket.unlink"
           | "thread.active.reorder"
           | "thread.mark-unread"
           | "thread.metadata.update"
@@ -4443,6 +4448,25 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
             updatedAt: thread.updatedAt,
           };
         }
+        case "thread.ticket.link": {
+          const current = thread.tickets ?? [];
+          if (current.some((link) => threadTicketKeysEqual(link, command.ticket))) return thread;
+          return {
+            ...thread,
+            tickets: [
+              ...current,
+              { ...command.ticket, source: command.source, linkedAt: DateTime.formatIso(now) },
+            ],
+          };
+        }
+        case "thread.ticket.unlink": {
+          const current = thread.tickets ?? [];
+          if (!current.some((link) => threadTicketKeysEqual(link, command.ticket))) return thread;
+          return {
+            ...thread,
+            tickets: current.filter((link) => !threadTicketKeysEqual(link, command.ticket)),
+          };
+        }
         case "thread.tag.set": {
           const current = thread.tags ?? [];
           return {
@@ -4831,6 +4855,9 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
           return "thread.pin-reordered" as const;
         case "thread.active.reorder":
           return "thread.active-reordered" as const;
+        case "thread.ticket.link":
+        case "thread.ticket.unlink":
+          return "thread.tickets-updated" as const;
         case "thread.tag.set":
           return "thread.tags-updated" as const;
         case "thread.mark-unread":
@@ -14430,6 +14457,8 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
       case "thread.pin.reorder":
       case "thread.active.reorder":
       case "thread.tag.set":
+      case "thread.ticket.link":
+      case "thread.ticket.unlink":
       case "thread.mark-unread":
       case "thread.metadata.update":
       case "thread.pull-request.link":

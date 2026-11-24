@@ -12,7 +12,9 @@ import {
   type ApplicationStoredEvent,
   CheckpointId,
   CheckpointRef,
+  BeadsTicketId,
   CommandId,
+  LinearIssueKey,
   ContextTransferId,
   EnvironmentId,
   EventId,
@@ -3160,8 +3162,39 @@ it.layer(layerTest)("OrchestrationV2LayerLive lifecycle", (it) => {
           step,
         );
       }
+      const linear = {
+        tracker: "linear",
+        key: LinearIssueKey.make("NRX-412"),
+        url: "https://linear.app/acme/issue/NRX-412",
+      } as const;
+      const beads = { tracker: "beads", id: BeadsTicketId.make("jax-145.1") } as const;
+      for (const [step, command, expected] of [
+        ["link", { type: "thread.ticket.link", ticket: linear, source: "agent" }, [linear]],
+        ["relink", { type: "thread.ticket.link", ticket: linear, source: "manual" }, [linear]],
+        [
+          "link-bd",
+          { type: "thread.ticket.link", ticket: beads, source: "branch" },
+          [linear, beads],
+        ],
+        ["unlink", { type: "thread.ticket.unlink", ticket: linear }, [beads]],
+        ["unlink-missing", { type: "thread.ticket.unlink", ticket: linear }, [beads]],
+      ] as const) {
+        yield* orchestrator.dispatch({
+          ...command,
+          commandId: CommandId.make(`runtime-layer-lifecycle-ticket-${step}`),
+          threadId,
+        });
+        assert.deepEqual<unknown>(
+          (shellOf(yield* orchestrator.getShellSnapshot()).tickets ?? []).map(
+            ({ linkedAt: _linkedAt, source: _source, ...ref }) => ref,
+          ),
+          expected,
+          step,
+        );
+      }
+      assert.equal(shellOf(yield* orchestrator.getShellSnapshot()).tickets?.[0]?.source, "branch");
       const taggedShell = shellOf(yield* orchestrator.getShellSnapshot());
-      // Tags are not activity, so the thread keeps its place in thread lists.
+      // Tags and ticket links are not activity, so the thread keeps its place in thread lists.
       assert.equal(
         DateTime.toEpochMillis(taggedShell.updatedAt),
         DateTime.toEpochMillis(untaggedShell.updatedAt),
