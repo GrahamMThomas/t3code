@@ -160,6 +160,11 @@ import { useRightPanelStore } from "../rightPanelStore";
 import { readThreadShell, useProjects } from "../state/entities";
 import { serverEnvironment } from "../state/server";
 import { shellEnvironment } from "../state/shell";
+import {
+  allowsIntegratedBrowserForFiles,
+  opensInDefaultApp,
+} from "../mods/defaultAppLinks/defaultAppLinks";
+import { useOpenInDefaultApp } from "../mods/defaultAppLinks/useOpenInDefaultApp";
 import { assetEnvironment } from "../state/assets";
 import {
   readEnvironmentScope,
@@ -648,6 +653,7 @@ function useChatMarkdownState({
   const [preferredEditor] = usePreferredEditor(availableEditors);
   const preferredEditorMenuLabel = openInEditorMenuLabel(preferredEditor);
   const openInPreferredEditor = useOpenInPreferredEditor(environmentId, availableEditors);
+  const openInDefaultApp = useOpenInDefaultApp(environmentId, availableEditors);
   const openInEditor = useAtomCommand(shellEnvironment.openInEditor, {
     reportFailure: false,
   });
@@ -870,6 +876,7 @@ function useChatMarkdownState({
       isClientHost &&
       canOperateHost &&
       availableEditors.includes("file-manager");
+    const opensFileInDefaultApp = opensInDefaultApp(fileLinkMeta.filePath);
     const mediaPath = mediaSource ?? fileLinkMeta.filePath;
     const canPreviewMedia =
       mediaMimeTypeFromExtension(
@@ -935,8 +942,17 @@ function useChatMarkdownState({
             : undefined
         }
         revealLabel={revealInFileManagerLabel}
+        onOpenInDefaultApp={
+          opensFileInDefaultApp && openInDefaultApp
+            ? async () => openInDefaultApp((await resolveHostPath()).absolutePath)
+            : undefined
+        }
         onOpenInBrowser={
           threadRef &&
+          allowsIntegratedBrowserForFiles({
+            linkTarget: linkTargetPreference,
+            canOpenInDefaultApp: opensFileInDefaultApp && openInDefaultApp !== undefined,
+          }) &&
           canOperatePreview &&
           isPreviewAvailableFor(threadRef.environmentId) &&
           isBrowserPreviewFile(fileLinkMeta.filePath)

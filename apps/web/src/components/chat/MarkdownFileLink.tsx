@@ -9,6 +9,7 @@ import type { EnvironmentId, ScopedThreadRef } from "@t3tools/contracts";
 import { memo, useState, type MouseEvent as ReactMouseEvent } from "react";
 
 import { readLocalApi } from "../../localApi";
+import { opensInDefaultApp } from "../../mods/defaultAppLinks/defaultAppLinks";
 import { cn } from "../../lib/utils";
 import { shouldOpenMarkdownFileLinkInEditor } from "../../markdown-links";
 import type { markdownFileCopyPaths } from "../../markdownFileHostPath";
@@ -43,6 +44,7 @@ interface MarkdownFileLinkProps {
   resolveCopyPaths: () => Promise<ReturnType<typeof markdownFileCopyPaths>>;
   openInEditorMenuLabel: string;
   onOpenInBrowser?: (() => Promise<AtomCommandResult<unknown, unknown>>) | undefined;
+  onOpenInDefaultApp?: (() => Promise<AtomCommandResult<unknown, unknown>>) | undefined;
   onOpenMedia?: (() => void) | undefined;
   onReveal?: (() => Promise<AtomCommandResult<unknown, unknown>>) | undefined;
   revealLabel?: string | undefined;
@@ -67,48 +69,50 @@ export const MarkdownFileLink = memo(function MarkdownFileLink({
   onOpenInPanel,
   openInEditorMenuLabel,
   onOpenInBrowser,
+  onOpenInDefaultApp,
   onOpenMedia,
   onReveal,
   revealLabel,
   resolveCopyPaths,
 }: MarkdownFileLinkProps) {
-  const handleOpenInEditor = () => {
-    if (!onOpen) {
+  const runFileAction = (
+    action: (() => Promise<AtomCommandResult<unknown, unknown>>) | undefined,
+    operation: string,
+    failureTitle: string,
+  ) => {
+    if (!action) {
       return;
     }
+    const reportFailure = (cause: unknown, error: unknown) => {
+      reportMarkdownActionFailure({ operation, target: targetPath }, cause);
+      toastManager.add(
+        stackedThreadToast({
+          type: "error",
+          title: failureTitle,
+          description: error instanceof Error ? error.message : "An error occurred.",
+        }),
+      );
+    };
     void (async () => {
       try {
-        const result = await onOpen();
+        const result = await action();
         if (result._tag === "Success" || isAtomCommandInterrupted(result)) {
           return;
         }
-        reportMarkdownActionFailure(
-          { operation: "open-file-in-editor", target: targetPath },
-          result.cause,
-        );
-        const error = squashAtomCommandFailure(result);
-        toastManager.add(
-          stackedThreadToast({
-            type: "error",
-            title: "Unable to open file",
-            description: error instanceof Error ? error.message : "An error occurred.",
-          }),
-        );
+        reportFailure(result.cause, squashAtomCommandFailure(result));
       } catch (cause) {
-        reportMarkdownActionFailure(
-          { operation: "open-file-in-editor", target: targetPath },
-          cause,
-        );
-        toastManager.add(
-          stackedThreadToast({
-            type: "error",
-            title: "Unable to open file",
-            description: cause instanceof Error ? cause.message : "An error occurred.",
-          }),
-        );
+        reportFailure(cause, cause);
       }
     })();
   };
+  const handleOpenInEditor = () =>
+    runFileAction(onOpen, "open-file-in-editor", "Unable to open file");
+  const handleOpenInBrowser = () =>
+    runFileAction(onOpenInBrowser, "open-file-in-browser", "Unable to open file in browser");
+  const handleOpenInDefaultApp = () =>
+    runFileAction(onOpenInDefaultApp, "open-file-in-default-app", "Unable to open file");
+  const handleRevealInFileManager = () =>
+    runFileAction(onReveal, "reveal-file-in-file-manager", "Unable to reveal file");
 
   const handleOpenInFilePreview = () => {
     if (threadRef && panelPath) {
@@ -120,82 +124,6 @@ export const MarkdownFileLink = memo(function MarkdownFileLink({
       return;
     }
     handleOpenInEditor();
-  };
-
-  const handleOpenInBrowser = () => {
-    if (!onOpenInBrowser) {
-      return;
-    }
-    void (async () => {
-      try {
-        const result = await onOpenInBrowser();
-        if (result._tag === "Success" || isAtomCommandInterrupted(result)) {
-          return;
-        }
-        reportMarkdownActionFailure(
-          { operation: "open-file-in-browser", target: targetPath },
-          result.cause,
-        );
-        const error = squashAtomCommandFailure(result);
-        toastManager.add(
-          stackedThreadToast({
-            type: "error",
-            title: "Unable to open file in browser",
-            description: error instanceof Error ? error.message : "An error occurred.",
-          }),
-        );
-      } catch (cause) {
-        reportMarkdownActionFailure(
-          { operation: "open-file-in-browser", target: targetPath },
-          cause,
-        );
-        toastManager.add(
-          stackedThreadToast({
-            type: "error",
-            title: "Unable to open file in browser",
-            description: cause instanceof Error ? cause.message : "An error occurred.",
-          }),
-        );
-      }
-    })();
-  };
-
-  const handleRevealInFileManager = () => {
-    if (!onReveal) {
-      return;
-    }
-    void (async () => {
-      try {
-        const result = await onReveal();
-        if (result._tag === "Success" || isAtomCommandInterrupted(result)) {
-          return;
-        }
-        reportMarkdownActionFailure(
-          { operation: "reveal-file-in-file-manager", target: targetPath },
-          result.cause,
-        );
-        const error = squashAtomCommandFailure(result);
-        toastManager.add(
-          stackedThreadToast({
-            type: "error",
-            title: "Unable to reveal file",
-            description: error instanceof Error ? error.message : "An error occurred.",
-          }),
-        );
-      } catch (cause) {
-        reportMarkdownActionFailure(
-          { operation: "reveal-file-in-file-manager", target: targetPath },
-          cause,
-        );
-        toastManager.add(
-          stackedThreadToast({
-            type: "error",
-            title: "Unable to reveal file",
-            description: cause instanceof Error ? cause.message : "An error occurred.",
-          }),
-        );
-      }
-    })();
   };
 
   const handleCopy = (resolveValue: () => Promise<string>, title: string) => {
@@ -254,6 +182,9 @@ export const MarkdownFileLink = memo(function MarkdownFileLink({
         [
           ...(onOpenMedia ? ([{ id: "preview-media", label: "Preview media" }] as const) : []),
           ...(onOpen ? ([{ id: "open", label: openInEditorMenuLabel }] as const) : []),
+          ...(onOpenInDefaultApp
+            ? ([{ id: "open-in-default-app", label: "Open with default app" }] as const)
+            : []),
           ...(onOpenInBrowser
             ? ([{ id: "open-in-browser", label: "Open in integrated browser" }] as const)
             : []),
@@ -269,6 +200,10 @@ export const MarkdownFileLink = memo(function MarkdownFileLink({
       }
       if (clicked === "open") {
         handleOpenInEditor();
+        return;
+      }
+      if (clicked === "open-in-default-app") {
+        handleOpenInDefaultApp();
         return;
       }
       if (clicked === "open-in-browser") {
@@ -317,6 +252,7 @@ export const MarkdownFileLink = memo(function MarkdownFileLink({
     canOpenInBrowser,
     canOpenInPanel,
     canOpenMedia: onOpenMedia !== undefined,
+    canOpenInDefaultApp: onOpenInDefaultApp !== undefined,
   });
   const useBrowserPrimaryAction = shouldUseMarkdownFileBrowserPrimaryAction({
     iconPath,
@@ -342,6 +278,10 @@ export const MarkdownFileLink = memo(function MarkdownFileLink({
                 event.stopPropagation();
                 if (onOpen && shouldOpenMarkdownFileLinkInEditor(event)) {
                   handleOpenInEditor();
+                  return;
+                }
+                if (onOpenInDefaultApp && opensInDefaultApp(iconPath)) {
+                  handleOpenInDefaultApp();
                   return;
                 }
                 if (useBrowserPrimaryAction) {
@@ -419,6 +359,7 @@ function areMarkdownFileLinkPropsEqual(
     previous.onOpenInPanel === next.onOpenInPanel &&
     previous.openInEditorMenuLabel === next.openInEditorMenuLabel &&
     previous.onOpenInBrowser === next.onOpenInBrowser &&
+    previous.onOpenInDefaultApp === next.onOpenInDefaultApp &&
     previous.onOpenMedia === next.onOpenMedia &&
     previous.onReveal === next.onReveal &&
     previous.resolveCopyPaths === next.resolveCopyPaths &&

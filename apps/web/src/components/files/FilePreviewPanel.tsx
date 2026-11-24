@@ -45,7 +45,7 @@ import {
   squashAtomCommandFailure,
 } from "@t3tools/client-runtime/state/runtime";
 import { mediaFileReference } from "@t3tools/client-runtime/media-reference";
-import { FolderTree, Globe2, WrapTextIcon } from "lucide-react";
+import { ExternalLinkIcon, FolderTree, Globe2, WrapTextIcon } from "lucide-react";
 import * as Schema from "effect/Schema";
 import {
   lazy,
@@ -63,6 +63,11 @@ import { MediaVideoPlayer } from "~/components/media/MediaVideoPlayer";
 import { MediaActions, type MediaActionSource } from "~/components/media/MediaActions";
 import { useRemoteOpenState } from "~/remoteOpen";
 import { useClientSettings } from "~/hooks/useSettings";
+import {
+  allowsIntegratedBrowserForFiles,
+  opensInDefaultApp,
+} from "~/mods/defaultAppLinks/defaultAppLinks";
+import { useOpenInDefaultApp } from "~/mods/defaultAppLinks/useOpenInDefaultApp";
 import { useTheme } from "~/hooks/useTheme";
 import { useStableCallback } from "~/hooks/useStableCallback";
 import { getLocalStorageItem, setLocalStorageItem, useLocalStorage } from "~/hooks/useLocalStorage";
@@ -1058,6 +1063,8 @@ export default function FilePreviewPanel({
   const defaultWordWrap = useClientSettings((settings) => settings.wordWrap);
   const [wordWrapOverride, setWordWrapOverride] = useState<boolean | null>(null);
   const wordWrap = wordWrapOverride ?? defaultWordWrap;
+  const linkTarget = useClientSettings((settings) => settings.browserLinkTarget);
+  const openInDefaultApp = useOpenInDefaultApp(environmentId, availableEditors);
   const canOperatePreview = useEnvironmentScope(environmentId, AuthPreviewOperateScope);
   const primaryEnvironmentId = usePrimaryEnvironmentId();
   const hostEnvironmentId = useAtomValue(hostEnvironmentIdAtom);
@@ -1239,7 +1246,13 @@ export default function FilePreviewPanel({
       : tableDelimiter
         ? setRenderTablePreferred
         : setRenderBrowserFilePreferred;
+  const canOpenInDefaultApp =
+    openInDefaultApp !== undefined &&
+    previewPath !== null &&
+    attachment === undefined &&
+    opensInDefaultApp(previewPath);
   const canOpenInBrowser =
+    allowsIntegratedBrowserForFiles({ linkTarget, canOpenInDefaultApp }) &&
     canOperatePreview &&
     previewPath !== null &&
     attachment === undefined &&
@@ -1318,6 +1331,24 @@ export default function FilePreviewPanel({
         stackedThreadToast({
           type: "error",
           title: "Unable to open file in browser",
+          description: error instanceof Error ? error.message : "An error occurred.",
+        }),
+      );
+    })();
+  };
+
+  const handleOpenInDefaultApp = () => {
+    if (!openInDefaultApp || !absolutePath) return;
+    void (async () => {
+      const result = await openInDefaultApp(absolutePath);
+      if (result._tag === "Success" || isAtomCommandInterrupted(result)) {
+        return;
+      }
+      const error = squashAtomCommandFailure(result);
+      toastManager.add(
+        stackedThreadToast({
+          type: "error",
+          title: "Unable to open file",
           description: error instanceof Error ? error.message : "An error occurred.",
         }),
       );
@@ -1410,6 +1441,11 @@ export default function FilePreviewPanel({
               onPress={() => setWordWrapOverride(!wordWrap)}
             >
               <WrapTextIcon className="size-3.5" />
+            </FileSurfaceAction>
+          ) : null}
+          {canOpenInDefaultApp ? (
+            <FileSurfaceAction label="Open with default app" onPress={handleOpenInDefaultApp}>
+              <ExternalLinkIcon className="size-3.5" />
             </FileSurfaceAction>
           ) : null}
           {canOpenInBrowser ? (

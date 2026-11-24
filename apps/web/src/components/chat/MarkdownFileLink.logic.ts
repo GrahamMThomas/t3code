@@ -20,12 +20,14 @@ export function hasMarkdownFilePrimaryAction(input: {
   canOpenInBrowser: boolean;
   canOpenInPanel: boolean;
   canOpenMedia?: boolean;
+  canOpenInDefaultApp?: boolean;
 }): boolean {
   return (
     input.canOpenInEditor ||
     input.canOpenInBrowser ||
     input.canOpenInPanel ||
-    input.canOpenMedia === true
+    input.canOpenMedia === true ||
+    input.canOpenInDefaultApp === true
   );
 }
 
