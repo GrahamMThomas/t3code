@@ -1,10 +1,18 @@
+import * as Schema from "effect/Schema";
+
 /** One open browser tab, addressed the way Chrome's scripting API addresses it. */
-export interface BrowserTab {
-  readonly windowId: number;
+const BrowserTab = Schema.Struct({
+  // Chrome's scripting API returns window ids as strings.
+  windowId: Schema.String,
   /** 1-based, as Chrome's `activeTabIndex` expects. */
-  readonly tabIndex: number;
-  readonly url: string;
-}
+  tabIndex: Schema.Number,
+  url: Schema.String,
+});
+export type BrowserTab = typeof BrowserTab.Type;
+
+export const decodeBrowserTabs = Schema.decodeUnknownEffect(
+  Schema.fromJsonString(Schema.Array(BrowserTab)),
+);
 
 // A PR page's own subpages (/files, /commits) count as the same PR.
 const PULL_REQUEST_PATH = /\/(?:pull|pulls|merge_requests)\/\d+$/;

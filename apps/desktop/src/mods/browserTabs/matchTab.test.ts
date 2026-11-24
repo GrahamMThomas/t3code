@@ -1,8 +1,21 @@
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, it } from "@effect/vitest";
+import * as Effect from "effect/Effect";
 
-import { type BrowserTab, findMatchingTab } from "./matchTab.ts";
+import { type BrowserTab, decodeBrowserTabs, findMatchingTab } from "./matchTab.ts";
 
-const tab = (url: string, tabIndex = 1): BrowserTab => ({ windowId: 7, tabIndex, url });
+const tab = (url: string, tabIndex = 1): BrowserTab => ({ windowId: "7", tabIndex, url });
+
+describe("decodeBrowserTabs", () => {
+  it.effect("accepts the string window ids Chrome's scripting API returns", () =>
+    Effect.gen(function* () {
+      const raw =
+        '[{"windowId":"270232963","tabIndex":2,"url":"https://github.com/acme/api/pull/12"}]';
+      expect(yield* decodeBrowserTabs(raw)).toEqual([
+        { windowId: "270232963", tabIndex: 2, url: "https://github.com/acme/api/pull/12" },
+      ]);
+    }),
+  );
+});
 const PR = "https://github.com/acme/api/pull/12";
 
 describe("findMatchingTab", () => {

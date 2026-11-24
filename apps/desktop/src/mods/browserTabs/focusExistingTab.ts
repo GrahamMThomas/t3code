@@ -1,11 +1,10 @@
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as HostProcess from "@t3tools/shared/HostProcess";
 import * as Effect from "effect/Effect";
-import * as Schema from "effect/Schema";
 import * as ChildProcess from "effect/process/ChildProcess";
 import * as ChildProcessSpawner from "effect/process/ChildProcessSpawner";
 
-import { findMatchingTab } from "./matchTab.ts";
+import { decodeBrowserTabs, findMatchingTab } from "./matchTab.ts";
 
 // One Apple Event per property list, not per tab, so a hundred tabs stay fast. A Chrome that
 // is not running answers no tabs and is not launched.
@@ -28,14 +27,6 @@ function run(argv) {
   chrome.activate();
 }`;
 
-const decodeTabs = Schema.decodeUnknownEffect(
-  Schema.fromJsonString(
-    Schema.Array(
-      Schema.Struct({ windowId: Schema.Number, tabIndex: Schema.Number, url: Schema.String }),
-    ),
-  ),
-);
-
 const osascript = Effect.fn("browserTabs.osascript")(function* (
   script: string,
   args: ReadonlyArray<string>,
@@ -50,10 +41,10 @@ const osascript = Effect.fn("browserTabs.osascript")(function* (
 });
 
 const focusMatchingTab = Effect.fn("browserTabs.focusMatchingTab")(function* (url: string) {
-  const tabs = yield* decodeTabs(yield* osascript(LIST_TABS_SCRIPT, []));
+  const tabs = yield* decodeBrowserTabs(yield* osascript(LIST_TABS_SCRIPT, []));
   const match = findMatchingTab(tabs, url);
   if (match === undefined) return false;
-  yield* osascript(FOCUS_TAB_SCRIPT, [String(match.windowId), String(match.tabIndex)]);
+  yield* osascript(FOCUS_TAB_SCRIPT, [match.windowId, String(match.tabIndex)]);
   return true;
 });
 
