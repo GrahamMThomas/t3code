@@ -2,6 +2,7 @@ import type { ScopedThreadRef, ThreadTicketLink } from "@t3tools/contracts";
 import type { MouseEvent } from "react";
 
 import { useOpenLink } from "~/browser/useOpenLink";
+import { useRightPanelStore } from "~/rightPanelStore";
 import { InlineButton } from "../ui/button";
 import { toastManager } from "../ui/toast";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
@@ -54,7 +55,15 @@ export function ThreadTicketChips({
                 onClick={(event) => open(event, link.url)}
               />
             ) : (
-              <span aria-label={`bd ticket ${label}`} />
+              <InlineButton
+                aria-label={`Open bd ticket ${label}`}
+                onPointerDown={(event) => event.stopPropagation()}
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  useRightPanelStore.getState().openBeadsTicket(threadRef, link.id);
+                }}
+              />
             )
           }
         >

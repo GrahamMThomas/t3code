@@ -217,6 +217,7 @@ import { linkCreatedPullRequest } from "./git/linkCreatedPullRequest.ts";
 import * as ReviewService from "./review/ReviewService.ts";
 import * as ProjectEnrichmentService from "./project/ProjectEnrichmentService.ts";
 import * as ProjectService from "./project/ProjectService.ts";
+import * as BeadsTicketReader from "./tickets/BeadsTicketReader.ts";
 import { threadWorkspaceRoot } from "./project/threadWorkspaceRoot.ts";
 import * as ManagedProjectFolders from "./project/ManagedProjectFolders.ts";
 import * as ScratchThreadPromotion from "./project/ScratchThreadPromotion.ts";
@@ -1470,6 +1471,7 @@ export const layerWsRpc = (
       const reviewGuides = yield* PullRequestReviewGuideService.PullRequestReviewGuideService;
       const pullRequestSync = yield* PullRequestSyncReactor.PullRequestSyncReactor;
       const deviceService = yield* DeviceService.DeviceService;
+      const beadsTicketReader = yield* BeadsTicketReader.BeadsTicketReader;
       const deviceHostContext =
         yield* Effect.context<Effect.Services<ReturnType<typeof remoteSshDeviceHosts>>>();
       const orchestrationEngine = yield* Orchestrator.OrchestratorV2;
@@ -3209,6 +3211,10 @@ export const layerWsRpc = (
             Effect.flatMap((workspaceRoot) => deviceService.open(input, { workspaceRoot })),
           ),
         [WS_METHODS.deviceClose]: (input) => deviceService.close(input),
+        [WS_METHODS.ticketsReadBeads]: (input) =>
+          threadWorkspaceRoot(input.threadId).pipe(
+            Effect.flatMap((workspaceRoot) => beadsTicketReader.read(input, { workspaceRoot })),
+          ),
         [WS_METHODS.deviceShutdown]: (input) => deviceService.shutdown(input),
         [WS_METHODS.deviceDetail]: (input) => deviceService.detail(input),
         [WS_METHODS.deviceAction]: (input) => deviceService.action(input),

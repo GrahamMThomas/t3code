@@ -17,6 +17,7 @@ import {
   createAtomCommandScheduler,
   createEnvironmentCommand,
   createEnvironmentRpcCommand,
+  createEnvironmentRpcQueryAtomFamily,
 } from "./runtime.ts";
 import {
   type InterruptThreadTurnInput,
@@ -410,6 +411,11 @@ export function createThreadEnvironmentAtoms<R, E>(
       tag: WS_METHODS.providerUploadFeedback,
       scheduler,
       concurrency,
+    }),
+    readBeadsTicket: createEnvironmentRpcQueryAtomFamily(runtime, {
+      label: "environment-data:threads:read-beads-ticket",
+      tag: WS_METHODS.ticketsReadBeads,
+      staleTimeMs: 15_000,
     }),
   };
   const commands = {

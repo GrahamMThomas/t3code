@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 
-import { IsoDateTime, TrimmedNonEmptyString } from "./baseSchemas.ts";
+import { IsoDateTime, ThreadId, TrimmedNonEmptyString } from "./baseSchemas.ts";
 
 export const LinearIssueKey = TrimmedNonEmptyString.check(
   Schema.isPattern(/^[A-Z][A-Z0-9]*-[1-9][0-9]*$/),
@@ -81,3 +81,52 @@ function threadTicketIdentity(ticket: ThreadTicketRef): string {
 export function threadTicketKeysEqual(left: ThreadTicketRef, right: ThreadTicketRef): boolean {
   return threadTicketIdentity(left) === threadTicketIdentity(right);
 }
+
+const OptionalText = Schema.optional(Schema.NullOr(Schema.String));
+
+export const BeadsTicketDependency = Schema.Struct({
+  id: Schema.String,
+  title: Schema.String,
+  status: Schema.String,
+  dependency_type: Schema.optional(Schema.String),
+});
+export type BeadsTicketDependency = typeof BeadsTicketDependency.Type;
+
+/** `bd show <id> --json --brief-deps`, keeping only what the viewer shows. */
+export const BeadsTicketDetail = Schema.Struct({
+  id: Schema.String,
+  title: Schema.String,
+  status: Schema.String,
+  priority: Schema.optional(Schema.Number),
+  issue_type: Schema.optional(Schema.String),
+  labels: Schema.optional(Schema.NullOr(Schema.Array(Schema.String))),
+  description: OptionalText,
+  design: OptionalText,
+  notes: OptionalText,
+  acceptance_criteria: OptionalText,
+  close_reason: OptionalText,
+  created_at: Schema.optional(Schema.String),
+  updated_at: Schema.optional(Schema.String),
+  dependencies: Schema.optional(Schema.NullOr(Schema.Array(BeadsTicketDependency))),
+});
+export type BeadsTicketDetail = typeof BeadsTicketDetail.Type;
+
+export const ReadBeadsTicketInput = Schema.Struct({
+  threadId: ThreadId,
+  id: BeadsTicketId,
+});
+export type ReadBeadsTicketInput = typeof ReadBeadsTicketInput.Type;
+
+export const BeadsTicketReadFailure = Schema.Literals([
+  "bd-missing",
+  "not-found",
+  "no-folder",
+  "bad-output",
+  "failed",
+]);
+export type BeadsTicketReadFailure = typeof BeadsTicketReadFailure.Type;
+
+export class BeadsTicketReadError extends Schema.TaggedError<BeadsTicketReadError>()(
+  "BeadsTicketReadError",
+  { reason: BeadsTicketReadFailure, message: Schema.String },
+) {}
