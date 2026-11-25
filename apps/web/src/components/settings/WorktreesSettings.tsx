@@ -4,6 +4,7 @@ import { AdvancedSettings } from "./AdvancedSettings";
 import { BranchNamingSettings } from "./BranchNamingSettings";
 import { WorktreeSubmodulesRow } from "./ProjectDefaultsSettings";
 import { ScopedSwitch } from "./ScopedSwitch";
+import { TicketLinkSettings } from "./TicketLinkSettings";
 import { useSettingsScope } from "./SettingsScopeContext";
 import {
   SettingResetButton,
@@ -67,6 +68,11 @@ export function WorktreesSettingsPanel() {
       <SettingsSection id="worktree-branches" title="Branches">
         <BranchNamingSettings />
       </SettingsSection>
+      {!isProjectScope && (
+        <SettingsSection id="ticket-links" title="Ticket links">
+          <TicketLinkSettings />
+        </SettingsSection>
+      )}
       <WorktreeCleanupSection />
     </SettingsPageContainer>
   );

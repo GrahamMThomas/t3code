@@ -51,5 +51,9 @@ describe("buildRuntimeInstructions", () => {
       "For PR waits, no sleep, loops, gh --watch, Monitor or ScheduleWakeup.",
     );
     assert.include(instructions, "call unwatch_pull_request");
+    assert.include(
+      instructions,
+      "When the task names a Linear issue or bd ticket, link it with link_ticket.",
+    );
   });
 });

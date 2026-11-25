@@ -1355,6 +1355,16 @@ export const CloudSpeechCredentials = Schema.Struct({
   openrouter: CloudSpeechCredential,
 });
 
+export const TicketLinkSettings = Schema.Struct({
+  /** The `<slug>` in linear.app/<slug>/issue/NRX-412. Empty turns branch detection off. */
+  linearWorkspace: TrimmedString.pipe(Schema.withDecodingDefault(Effect.succeed(""))),
+  /** Only these team keys link from a branch name, so `fix-2-bugs` never reads as FIX-2. */
+  linearTeamKeys: Schema.Array(TrimmedNonEmptyString).pipe(
+    Schema.withDecodingDefault(Effect.succeed([])),
+  ),
+});
+export type TicketLinkSettings = typeof TicketLinkSettings.Type;
+
 export const ServerSettings = Schema.Struct({
   // Null means unmigrated; empty is authoritative and must not resurrect cleared preferences.
   favorites: Schema.NullOr(ModelFavorites).pipe(Schema.withDecodingDefault(Effect.succeed(null))),
@@ -1367,6 +1377,9 @@ export const ServerSettings = Schema.Struct({
   ),
 
   worktreesDirectory: TrimmedString.pipe(Schema.withDecodingDefault(Effect.succeed(""))),
+  ticketLinks: TicketLinkSettings.pipe(
+    Schema.withDecodingDefault(Effect.succeed(Schema.decodeSync(TicketLinkSettings)({}))),
+  ),
   /** macOS only, Labs beta: clone new worktrees from a cached checkout instead of writing every file. */
   fastWorktreeCheckout: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(false))),
   /** Server-maintained history keeps old worktrees eligible for cleanup and review diffs. */
@@ -1827,6 +1840,12 @@ export const ServerSettingsPatch = Schema.Struct({
     }),
   ),
   worktreesDirectory: Schema.optionalKey(TrimmedString),
+  ticketLinks: Schema.optionalKey(
+    Schema.Struct({
+      linearWorkspace: Schema.optionalKey(TrimmedString),
+      linearTeamKeys: Schema.optionalKey(Schema.Array(TrimmedNonEmptyString)),
+    }),
+  ),
   fastWorktreeCheckout: Schema.optionalKey(Schema.Boolean),
   responseStreamingMode: Schema.optionalKey(ResponseStreamingMode),
   enableProviderUpdateChecks: Schema.optionalKey(Schema.Boolean),

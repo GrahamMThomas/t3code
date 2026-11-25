@@ -262,6 +262,20 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: ["worktree location folder directory path drive external disk"],
   },
   {
+    id: "ticket-links-linear-workspace",
+    title: "Linear workspace",
+    to: "/settings/worktrees",
+    scope: "environment-defaults",
+    searchTerms: ["linear ticket issue link branch workspace slug url sidebar"],
+  },
+  {
+    id: "ticket-links-linear-teams",
+    title: "Linear team keys",
+    to: "/settings/worktrees",
+    scope: "environment-defaults",
+    searchTerms: ["linear ticket issue link branch team key prefix sidebar"],
+  },
+  {
     id: "storage-artifacts",
     title: "Artifacts and logs",
     to: "/settings/maintenance",
