@@ -1,7 +1,7 @@
 import {
-  BeadsTicketId,
   CommandId,
-  LinearIssueKey,
+  parseBeadsTicketId,
+  parseLinearIssueUrl,
   type ThreadId,
   type ThreadTicketLink,
   type ThreadTicketRef,
@@ -11,7 +11,6 @@ import * as Cause from "effect/Cause";
 import * as SecureRandom from "effect/crypto/SecureRandom";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import * as Schema from "effect/Schema";
 
 import * as Orchestrator from "../../../orchestration-v2/Orchestrator.ts";
 import * as McpInvocationContext from "../../McpInvocationContext.ts";
@@ -26,25 +25,18 @@ import {
   TicketsToolkit,
 } from "./tools.ts";
 
-const isLinearIssueKey = Schema.is(LinearIssueKey);
-const isBeadsTicketId = Schema.is(BeadsTicketId);
-
 export function ticketRefFromTarget(input: TicketTargetInput): ThreadTicketRef | string {
   if ((input.linearUrl === undefined) === (input.bdId === undefined)) {
     return "Pass exactly one of linearUrl or bdId.";
   }
   if (input.bdId !== undefined) {
-    return isBeadsTicketId(input.bdId)
-      ? { tracker: "beads", id: input.bdId }
-      : `${input.bdId} is not a bd ticket id, like jax-145.1.`;
+    return parseBeadsTicketId(input.bdId) ?? `${input.bdId} is not a bd ticket id, like jax-145.1.`;
   }
   const url = input.linearUrl ?? "";
-  const key = /^https:\/\/linear\.app\/[^/]+\/issue\/([A-Za-z0-9]+-[0-9]+)(?:[/?#]|$)/
-    .exec(url)?.[1]
-    ?.toUpperCase();
-  return key !== undefined && isLinearIssueKey(key)
-    ? { tracker: "linear", key, url }
-    : `${url} is not a Linear issue URL, like https://linear.app/acme/issue/NRX-412.`;
+  return (
+    parseLinearIssueUrl(url) ??
+    `${url} is not a Linear issue URL, like https://linear.app/acme/issue/NRX-412.`
+  );
 }
 
 function entryOf(link: ThreadTicketLink): TicketLinksResult["tickets"][number] {

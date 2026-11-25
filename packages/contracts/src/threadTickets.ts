@@ -46,6 +46,29 @@ export const StoredThreadTickets = Schema.Array(ThreadTicketLink).pipe(
   Schema.catchDecoding(() => Effect.succeedSome([])),
 );
 
+const isLinearIssueKey = Schema.is(LinearIssueKey);
+const isBeadsTicketId = Schema.is(BeadsTicketId);
+
+export function parseLinearIssueUrl(url: string): LinearTicketRef | null {
+  const trimmed = url.trim();
+  const key = /^https:\/\/linear\.app\/[^/]+\/issue\/([A-Za-z0-9]+-[0-9]+)(?:[/?#]|$)/
+    .exec(trimmed)?.[1]
+    ?.toUpperCase();
+  return key !== undefined && isLinearIssueKey(key)
+    ? { tracker: "linear", key, url: trimmed }
+    : null;
+}
+
+export function parseBeadsTicketId(id: string): BeadsTicketRef | null {
+  const trimmed = id.trim();
+  return isBeadsTicketId(trimmed) ? { tracker: "beads", id: trimmed } : null;
+}
+
+/** What a person pastes: a Linear issue URL, or a bd ticket id. */
+export function parseThreadTicketInput(text: string): ThreadTicketRef | null {
+  return parseLinearIssueUrl(text) ?? parseBeadsTicketId(text);
+}
+
 function threadTicketIdentity(ticket: ThreadTicketRef): string {
   switch (ticket.tracker) {
     case "linear":

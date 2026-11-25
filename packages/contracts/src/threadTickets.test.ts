@@ -1,7 +1,12 @@
 import { assert, it } from "@effect/vitest";
 import * as Schema from "effect/Schema";
 
-import { BeadsTicketId, LinearIssueKey, StoredThreadTickets } from "./threadTickets.ts";
+import {
+  BeadsTicketId,
+  LinearIssueKey,
+  StoredThreadTickets,
+  parseThreadTicketInput,
+} from "./threadTickets.ts";
 
 const isLinearIssueKey = Schema.is(LinearIssueKey);
 const isBeadsTicketId = Schema.is(BeadsTicketId);
@@ -27,6 +32,28 @@ it.each([
   ["jax-145.", false],
 ])("bd id %s valid: %s", (value, valid) => {
   assert.equal(isBeadsTicketId(value), valid);
+});
+
+it.each([
+  [
+    "https://linear.app/acme/issue/NRX-412/retry-prechart",
+    {
+      tracker: "linear",
+      key: "NRX-412",
+      url: "https://linear.app/acme/issue/NRX-412/retry-prechart",
+    },
+  ],
+  [
+    "  https://linear.app/acme/issue/nrx-412?x=1 ",
+    { tracker: "linear", key: "NRX-412", url: "https://linear.app/acme/issue/nrx-412?x=1" },
+  ],
+  [" jax-145.1 ", { tracker: "beads", id: "jax-145.1" }],
+  ["https://linear.app/acme/project/NRX-412", null],
+  ["https://example.com/acme/issue/NRX-412", null],
+  ["NRX-412", null],
+  ["", null],
+])("pasted %j parses to %j", (text, expected) => {
+  assert.deepStrictEqual<unknown>(parseThreadTicketInput(text), expected);
 });
 
 it("stored links decode both trackers and drop the list when one link is malformed", () => {

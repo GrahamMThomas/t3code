@@ -1223,3 +1223,32 @@ export const unlinkThreadPullRequest = Effect.fn("EnvironmentCommands.unlinkThre
     });
   },
 );
+
+export type LinkThreadTicketInput = Omit<
+  Extract<OrchestrationV2Command, { type: "thread.ticket.link" }>,
+  "type" | "commandId"
+> &
+  CommandMetadata;
+export type UnlinkThreadTicketInput = Omit<
+  Extract<OrchestrationV2Command, { type: "thread.ticket.unlink" }>,
+  "type" | "commandId"
+> &
+  CommandMetadata;
+export const linkThreadTicket = Effect.fn("EnvironmentCommands.linkThreadTicket")(function* (
+  input: LinkThreadTicketInput,
+) {
+  return yield* dispatch({
+    ...input,
+    type: "thread.ticket.link",
+    commandId: yield* allocateCommandId(input),
+  });
+});
+export const unlinkThreadTicket = Effect.fn("EnvironmentCommands.unlinkThreadTicket")(function* (
+  input: UnlinkThreadTicketInput,
+) {
+  return yield* dispatch({
+    ...input,
+    type: "thread.ticket.unlink",
+    commandId: yield* allocateCommandId(input),
+  });
+});

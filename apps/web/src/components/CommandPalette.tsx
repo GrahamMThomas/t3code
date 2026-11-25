@@ -78,6 +78,7 @@ import {
   PlugIcon,
   SquarePenIcon,
   TextSearchIcon,
+  TicketIcon,
   UserPlusIcon,
 } from "lucide-react";
 import { openThreadFind } from "./chat/threadFindStore";
@@ -255,6 +256,8 @@ import { EnvironmentMachineIcon } from "./EnvironmentMachineIcon";
 import { Checkbox } from "./ui/checkbox";
 import { ProjectFilePicker } from "./files/ProjectFilePicker";
 import { openLinkPullRequestDialog } from "./pullRequest/LinkPullRequestDialog";
+import { openLinkTicketDialog } from "./tickets/LinkTicketDialog";
+import { threadTicketLabel } from "./tickets/ThreadTicketChips";
 import { canShareWithGuestAtom } from "./chat/guestShareAvailability";
 import { openGuestShareDialog } from "./chat/guestShareDialogState";
 import { openUseInAnotherApp } from "./mcp/UseInAnotherAppDialog";
@@ -469,6 +472,9 @@ function OpenCommandPaletteDialog(props: {
   });
   const stopThreadSession = useAtomCommand(threadEnvironment.stopSession, {
     reportFailure: false,
+  });
+  const unlinkThreadTicket = useAtomCommand(threadEnvironment.unlinkTicket, {
+    reportFailure: true,
   });
   const refreshProviders = useAtomCommand(serverEnvironment.refreshProviders, {
     reportFailure: false,
@@ -1468,6 +1474,37 @@ function OpenCommandPaletteDialog(props: {
         useRightPanelStore.getState().open(threadRef, "pull-requests");
       },
     });
+  }
+
+  if (activeThread !== null) {
+    const threadRef = scopeThreadRef(activeThread.environmentId, activeThread.id);
+    actionItems.push({
+      kind: "action",
+      value: "action:link-ticket",
+      searchTerms: ["link", "ticket", "linear", "issue", "bd", "beads"],
+      title: "Link ticket to thread",
+      icon: <TicketIcon className={ITEM_ICON_CLASS} />,
+      run: async () => {
+        openLinkTicketDialog(threadRef);
+      },
+    });
+    for (const link of activeThread.tickets) {
+      const { source: _source, linkedAt: _linkedAt, ...ticket } = link;
+      const label = threadTicketLabel(link);
+      actionItems.push({
+        kind: "action",
+        value: `action:unlink-ticket:${link.tracker}:${label}`,
+        searchTerms: ["unlink", "remove", "ticket", label],
+        title: `Unlink ${label}`,
+        icon: <TicketIcon className={ITEM_ICON_CLASS} />,
+        run: async () => {
+          await unlinkThreadTicket({
+            environmentId: threadRef.environmentId,
+            input: { threadId: threadRef.threadId, ticket },
+          });
+        },
+      });
+    }
   }
 
   if (activeThread !== null && canShareActiveThreadWithGuest) {
